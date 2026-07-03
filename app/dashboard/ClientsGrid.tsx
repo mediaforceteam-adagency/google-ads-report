@@ -85,7 +85,7 @@ function ClientCard({ client }: { client: ClientWithSummary }) {
   const s = client.latestSummary
   const change = s ? momChange(s?.total_spend ?? 0, s?.prev_spend ?? 0) : null
   const reportPath = s
-    ? `/dashboard/report/${encodeURIComponent(client.customer_id)}/${s.report_month}`
+    ? `/dashboard/report/${encodeURIComponent(client.customer_id)}/${s.report_month.slice(0, 7)}`
     : null
 
   return (
@@ -208,6 +208,7 @@ export default function ClientsGrid({ clients }: { clients: ClientWithSummary[] 
             placeholder="Search clients…"
             value={query}
             onChange={(e) => setQuery(e.target.value)}
+            autoComplete="off"
             className="pl-9 pr-4 py-2 text-sm rounded-lg border border-border-blue bg-white text-gray-900 placeholder-gray-400 outline-none focus:border-navy focus:ring-2 focus:ring-navy/10 w-64 transition"
           />
         </div>

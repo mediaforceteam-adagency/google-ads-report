@@ -1,4 +1,5 @@
 import { signOut } from './actions'
+import { MEDIAFORCE_LOGO_BASE64 } from '@/lib/logo'
 
 export default function DashboardLayout({ children }: { children: React.ReactNode }) {
   return (
@@ -7,9 +8,8 @@ export default function DashboardLayout({ children }: { children: React.ReactNod
       <header className="bg-navy shadow-sm sticky top-0 z-10">
         <div className="max-w-7xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
           {/* Logo */}
-          <span className="text-white font-bold text-xl tracking-tight shrink-0">
-            Mediaforce
-          </span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src={MEDIAFORCE_LOGO_BASE64} alt="Mediaforce" style={{ height: '32px', width: 'auto' }} className="shrink-0" />
 
           {/* Centre title */}
           <span className="text-[#bdd5f0] text-sm font-medium tracking-wide uppercase hidden sm:block">

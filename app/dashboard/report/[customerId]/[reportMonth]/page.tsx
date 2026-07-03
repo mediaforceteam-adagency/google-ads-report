@@ -4,9 +4,10 @@ import { createClient } from '@/lib/supabase/server'
 import MonthSelector from './MonthSelector'
 import KeywordsTable, { type KeywordRow } from './KeywordsTable'
 import ReportCharts, { type DeviceRow, type HourlyRow, type DayRow, type WeeklyRow, type AgeGenderRow } from './ReportCharts'
-import ActionPoints from './ActionPoints'
-import AIInsights from './AIInsights'
+import InsightsPanel from './InsightsPanel'
 import SectionHeading from './SectionHeading'
+import DownloadReportButton from './DownloadReportButton'
+import { MEDIAFORCE_LOGO_BASE64 } from '@/lib/logo'
 
 // ─── types ────────────────────────────────────────────────────────────────────
 
@@ -58,6 +59,19 @@ function mom(current: number | null, prev: number | null): number | null {
   return (((current ?? 0) - prev) / prev) * 100
 }
 
+function calcDelta(current: number, previous: number): string {
+  if (!previous || previous === 0) return '—'
+  const pct = ((current - previous) / previous) * 100
+  if (pct > 0) return `▲ +${pct.toFixed(1)}%`
+  if (pct < 0) return `▼ ${pct.toFixed(1)}%`
+  return '→ 0.0%'
+}
+
+function getDeltaColor(current: number, previous: number): string {
+  if (!previous || previous === 0) return '#7fb3d3'
+  return current >= previous ? '#5dd68c' : '#ff6b6b'
+}
+
 function formatReportMonth(s: string) {
   const [year, month] = s.split('-').map(Number)
   return new Date(year, month - 1).toLocaleDateString('en-US', { month: 'long', year: 'numeric' })
@@ -78,16 +92,6 @@ function StatusBadge({ status }: { status: string }) {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium capitalize ${cls}`}>
       {status}
-    </span>
-  )
-}
-
-function MomBadge({ change }: { change: number | null }) {
-  if (change === null) return <span className="text-[#8aafd8] text-xs">—</span>
-  const up = change >= 0
-  return (
-    <span className={`text-xs font-medium ${up ? 'text-[#5dd68c]' : 'text-[#ff6b6b]'}`}>
-      {up ? '▲' : '▼'} {Math.abs(change).toFixed(1)}%
     </span>
   )
 }
@@ -193,18 +197,35 @@ export default async function ReportPage({
   const prevAvgCpc = prevClicks > 0 ? prevSpend / prevClicks : 0
   const prevCpl = prevConversions > 0 ? prevSpend / prevConversions : null
 
-  const kpis: { label: string; value: string; prev: string; change: number | null; accent: boolean }[] = [
-    { label: 'Total Spend', value: fmtCAD(totalSpend), prev: fmtCAD(prevSpend), change: mom(totalSpend, prevSpend), accent: true },
-    { label: 'Clicks', value: fmtNum(totalClicks), prev: fmtNum(prevClicks), change: mom(totalClicks, prevClicks), accent: false },
-    { label: 'Impressions', value: fmtNum(totalImpressions), prev: fmtNum(prevImpressions), change: mom(totalImpressions, prevImpressions), accent: false },
-    { label: 'Conversions', value: fmtNum(totalConversions), prev: fmtNum(prevConversions), change: mom(totalConversions, prevConversions), accent: false },
-    { label: 'CTR', value: pct(ctr), prev: pct(prevCtr), change: mom(ctr, prevCtr), accent: false },
-    { label: 'Avg CPC', value: fmtCAD(avgCpc, 2), prev: fmtCAD(prevAvgCpc, 2), change: mom(avgCpc, prevAvgCpc), accent: false },
+  // ── ISSUE 2: delta strings/colors computed explicitly, before render ──────
+  const spendDelta = calcDelta(totalSpend, prevSpend)
+  const spendDeltaColor = getDeltaColor(totalSpend, prevSpend)
+  const clicksDelta = calcDelta(totalClicks, prevClicks)
+  const clicksDeltaColor = getDeltaColor(totalClicks, prevClicks)
+  const impressionsDelta = calcDelta(totalImpressions, prevImpressions)
+  const impressionsDeltaColor = getDeltaColor(totalImpressions, prevImpressions)
+  const conversionsDelta = calcDelta(totalConversions, prevConversions)
+  const conversionsDeltaColor = getDeltaColor(totalConversions, prevConversions)
+  const ctrDelta = calcDelta(ctr, prevCtr)
+  const ctrDeltaColor = getDeltaColor(ctr, prevCtr)
+  const avgCpcDelta = calcDelta(avgCpc, prevAvgCpc)
+  const avgCpcDeltaColor = getDeltaColor(avgCpc, prevAvgCpc)
+  const cplDelta = calcDelta(cplValue ?? 0, prevCpl ?? 0)
+  const cplDeltaColor = getDeltaColor(cplValue ?? 0, prevCpl ?? 0)
+
+  const kpis: { label: string; value: string; prev: string; delta: string; deltaColor: string; accent: boolean }[] = [
+    { label: 'Total Spend', value: fmtCAD(totalSpend), prev: fmtCAD(prevSpend), delta: spendDelta, deltaColor: spendDeltaColor, accent: true },
+    { label: 'Clicks', value: fmtNum(totalClicks), prev: fmtNum(prevClicks), delta: clicksDelta, deltaColor: clicksDeltaColor, accent: false },
+    { label: 'Impressions', value: fmtNum(totalImpressions), prev: fmtNum(prevImpressions), delta: impressionsDelta, deltaColor: impressionsDeltaColor, accent: false },
+    { label: 'Conversions', value: fmtNum(totalConversions), prev: fmtNum(prevConversions), delta: conversionsDelta, deltaColor: conversionsDeltaColor, accent: false },
+    { label: 'CTR', value: pct(ctr), prev: pct(prevCtr), delta: ctrDelta, deltaColor: ctrDeltaColor, accent: false },
+    { label: 'Avg CPC', value: fmtCAD(avgCpc, 2), prev: fmtCAD(prevAvgCpc, 2), delta: avgCpcDelta, deltaColor: avgCpcDeltaColor, accent: false },
     {
       label: 'CPL',
       value: cplValue !== null ? fmtCAD(cplValue, 2) : 'N/A',
       prev: prevCpl !== null ? fmtCAD(prevCpl, 2) : 'N/A',
-      change: cplValue !== null ? mom(cplValue, prevCpl) : null,
+      delta: cplDelta,
+      deltaColor: cplDeltaColor,
       accent: true,
     },
   ]
@@ -224,18 +245,35 @@ export default async function ReportPage({
           </svg>
           Back to Dashboard
         </Link>
-        <MonthSelector
-          customerId={customerId}
-          currentMonth={reportMonth}
-          availableMonths={availableMonths.length > 0 ? availableMonths : [reportMonth]}
-        />
+        <div className="flex items-center gap-3">
+          <MonthSelector
+            customerId={customerId}
+            currentMonth={reportMonth}
+            availableMonths={availableMonths.length > 0 ? availableMonths : [reportMonth]}
+          />
+          <DownloadReportButton
+            clientName={clientName}
+            reportMonthLabel={formatReportMonth(reportMonth)}
+            kpis={kpis}
+            totals={{ totalSpend, totalClicks, totalImpressions, totalConversions, ctr, cplValue }}
+            campaigns={campaigns}
+            adGroups={adGroups}
+            keywords={keywords}
+            devices={devices}
+            hourly={hourly}
+            dayOfWeek={dayOfWeek}
+            weekly={weekly}
+            ageGender={ageGender}
+          />
+        </div>
       </div>
 
       <div className="max-w-[1000px] mx-auto">
         {/* ── ISSUE 4: Report header ─────────────────────────────────────── */}
         <div className="bg-white border-b-[3px] border-[#1b5ea6] px-12 py-3.5 flex items-center justify-between flex-wrap gap-4 rounded-t-lg">
           <div className="flex items-center gap-4">
-            <span className="text-[#1b5ea6] font-bold text-lg">Mediaforce</span>
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img src={MEDIAFORCE_LOGO_BASE64} alt="Mediaforce" style={{ height: '36px', width: 'auto' }} />
             <span className="w-px h-8 bg-[#d0ddef]" />
             <span className="text-[#1b5ea6] font-bold text-[17px]">{clientName}</span>
           </div>
@@ -263,7 +301,9 @@ export default async function ReportPage({
                   </p>
                   <p className="text-[#7fb3d3] text-xs mt-1.5">vs {kpi.prev} last month</p>
                   <div className="mt-1">
-                    <MomBadge change={kpi.change} />
+                    <span style={{ color: kpi.deltaColor, fontSize: '11px', fontWeight: 600 }}>
+                      {kpi.delta}
+                    </span>
                   </div>
                 </div>
               ))}
@@ -391,21 +431,31 @@ export default async function ReportPage({
             ageGender={ageGender}
           />
 
-          {/* ── ISSUE 3: AI Insights ─────────────────────────────────────── */}
-          <section>
-            <SectionHeading>AI-Generated Insights</SectionHeading>
-            <div className="bg-white rounded-lg border border-[#dce6f5] p-6">
-              <AIInsights />
-            </div>
-          </section>
-
-          {/* ── ISSUE 3: Action Points ───────────────────────────────────── */}
-          <section>
-            <SectionHeading>Action Points &amp; Recommendations</SectionHeading>
-            <div className="bg-white rounded-lg border border-[#dce6f5] p-6">
-              <ActionPoints clientId={cid} reportMonth={dbMonth} />
-            </div>
-          </section>
+          {/* ── Performance Analysis + Action Points (Claude-generated) ──── */}
+          <InsightsPanel
+            clientId={cid}
+            reportMonth={dbMonth}
+            clientName={clientName}
+            reportMonthLabel={formatReportMonth(reportMonth)}
+            summary={{
+              totalSpend,
+              totalClicks,
+              totalImpressions,
+              totalConversions,
+              ctr,
+              avgCpc,
+              cpl: cplValue ?? 'N/A',
+              prevSpend,
+              prevClicks,
+              prevConversions,
+            }}
+            campaigns={campaigns}
+            keywords={keywords}
+            devices={devices}
+            dayOfWeek={dayOfWeek}
+            hourly={hourly}
+            ageGender={ageGender}
+          />
 
           {/* ── Footer ────────────────────────────────────────────────────── */}
           <footer className="bg-[#194A6A] rounded-[10px] p-6 text-center mt-10">
