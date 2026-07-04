@@ -3,6 +3,8 @@ import { supabase } from '@/lib/supabase'
 import ReportBody, { type Kpi, type Campaign, type AdGroup } from '@/components/report/ReportBody'
 import type { KeywordRow } from '@/components/report/KeywordsTable'
 import type { DeviceRow, HourlyRow, DayRow, WeeklyRow, AgeGenderRow } from '@/components/report/ReportCharts'
+import { generateInsights } from '@/lib/generateInsights'
+import { bulletText } from '@/lib/insightsText'
 
 // This is a PUBLIC page — no auth required. It uses the plain anon-key
 // Supabase client (no cookies/session), which works because RLS is disabled
@@ -113,6 +115,8 @@ export default async function PublicReportPage({
   const ctr = totalImpressions > 0 ? (totalClicks / totalImpressions) * 100 : 0
   const avgCpc = totalClicks > 0 ? totalSpend / totalClicks : 0
   const cplValue = totalConversions > 0 ? totalSpend / totalConversions : null
+  const clientName = (client as Client).client_name
+  const reportMonthLabel = formatReportMonth(reportMonth)
 
   const prevSpend = s?.prev_spend ?? 0
   const prevClicks = s?.prev_clicks ?? 0
@@ -181,13 +185,77 @@ export default async function PublicReportPage({
     },
   ]
 
+  const insightsSummary = {
+    totalSpend,
+    totalClicks,
+    totalImpressions,
+    totalConversions,
+    ctr,
+    avgCpc,
+    cpl: cplValue ?? ('N/A' as const),
+    prevSpend,
+    prevClicks,
+    prevConversions,
+  }
+
+  // Normally a team member opens the private dashboard first, which triggers
+  // Claude generation and persists the result to action_points. If a public
+  // link is shared before that happens, generate it here instead so the
+  // report never shows blank — and save it so future visits (and the
+  // private dashboard) reuse the same text instead of regenerating it.
+  let whatWorked = savedInsights?.what_worked ?? undefined
+  let areasForAttention = savedInsights?.areas_for_attention ?? undefined
+  let actionPoints = (savedInsights?.points as string[] | undefined) ?? undefined
+
+  const hasSavedText = !!whatWorked?.trim() && !!areasForAttention?.trim()
+
+  if (!hasSavedText) {
+    try {
+      const generated = await generateInsights({
+        clientName,
+        reportMonth: reportMonthLabel,
+        summary: insightsSummary,
+        campaigns,
+        keywords,
+        devices,
+        dayOfWeek,
+        hourly,
+        ageGender,
+      })
+
+      whatWorked = bulletText(generated.whatWorked)
+      areasForAttention = bulletText(generated.areasForAttention)
+      const hasSavedPoints = !!actionPoints && actionPoints.length > 0
+      if (!hasSavedPoints) actionPoints = generated.actionPoints
+
+      const upsertPayload: Record<string, unknown> = {
+        client_id: cid,
+        report_month: dbMonth,
+        what_worked: whatWorked,
+        areas_for_attention: areasForAttention,
+        updated_at: new Date().toISOString(),
+      }
+      if (!hasSavedPoints) upsertPayload.points = actionPoints
+
+      const { error: upsertError } = await supabase
+        .from('action_points')
+        .upsert(upsertPayload, { onConflict: 'client_id,report_month' })
+      if (upsertError) console.error('Failed to persist auto-generated insights:', upsertError)
+    } catch (error) {
+      // Leave whatWorked/areasForAttention undefined — InsightsPanel already
+      // renders a "No notes added." placeholder in that case, so the page
+      // still renders correctly instead of crashing.
+      console.error('Failed to auto-generate public report insights:', error)
+    }
+  }
+
   return (
     <div className="min-h-screen bg-bg-grey py-8 px-4">
       <ReportBody
         clientId={cid}
         dbMonth={dbMonth}
-        clientName={(client as Client).client_name}
-        reportMonthLabel={formatReportMonth(reportMonth)}
+        clientName={clientName}
+        reportMonthLabel={reportMonthLabel}
         kpis={kpis}
         campaigns={campaigns}
         adGroups={adGroups}
@@ -197,22 +265,11 @@ export default async function PublicReportPage({
         dayOfWeek={dayOfWeek}
         weekly={weekly}
         ageGender={ageGender}
-        summary={{
-          totalSpend,
-          totalClicks,
-          totalImpressions,
-          totalConversions,
-          ctr,
-          avgCpc,
-          cpl: cplValue ?? 'N/A',
-          prevSpend,
-          prevClicks,
-          prevConversions,
-        }}
+        summary={insightsSummary}
         readOnly
-        initialWhatWorked={savedInsights?.what_worked ?? undefined}
-        initialAreasForAttention={savedInsights?.areas_for_attention ?? undefined}
-        initialActionPoints={(savedInsights?.points as string[] | undefined) ?? undefined}
+        initialWhatWorked={whatWorked}
+        initialAreasForAttention={areasForAttention}
+        initialActionPoints={actionPoints}
       />
     </div>
   )

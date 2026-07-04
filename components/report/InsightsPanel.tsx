@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import SectionHeading from './SectionHeading'
 import ActionPoints from './ActionPoints'
 import { createClient } from '@/lib/supabase/client'
+import { bulletText } from '@/lib/insightsText'
 import type { KeywordRow } from './KeywordsTable'
 import type { DeviceRow, HourlyRow, DayRow, AgeGenderRow } from './ReportCharts'
 
@@ -38,10 +39,6 @@ function Spinner() {
       Analyzing performance data…
     </div>
   )
-}
-
-function bulletText(items: string[] | undefined) {
-  return (items ?? []).map((item) => `• ${item}`).join('\n')
 }
 
 async function persistText(clientId: string, reportMonth: string, field: 'what_worked' | 'areas_for_attention', value: string) {
