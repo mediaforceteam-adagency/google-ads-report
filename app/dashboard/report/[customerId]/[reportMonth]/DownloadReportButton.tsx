@@ -415,16 +415,16 @@ function buildReportHtml(d: {
     return [
       `<span style="${converted ? 'font-weight:700;color:#111' : ''}">${esc(k.keyword)}</span>`,
       esc(k.match_type),
-      qsPill(k.quality_score),
-      qualityMetricPill(k.landing_page_exp),
-      qualityMetricPill(k.expected_ctr),
-      qualityMetricPill(k.ad_relevance),
       fmtNum(k.clicks),
       fmtNum(k.impressions),
       pct(k.ctr),
       fmtCAD(k.cost ?? 0, 2),
       fmtCAD(k.avg_cpc ?? 0, 2),
       convCell(k.conversions),
+      qsPill(k.quality_score),
+      qualityMetricPill(k.landing_page_exp),
+      qualityMetricPill(k.expected_ctr),
+      qualityMetricPill(k.ad_relevance),
     ]
   })
 
@@ -616,7 +616,7 @@ function buildReportHtml(d: {
   ${dataTable(['Ad Group', 'Campaign', 'Status', 'Clicks', 'Impr.', 'Spend (CAD)', 'Conv.', 'CTR', 'CPL'], adGroupRows)}
 
   <h2 class="section-title">Top Keywords — ${esc(curMonthFull)}, by Spend</h2>
-  ${dataTable(['Keyword', 'Match Type', 'QS', 'Landing Page', 'Exp. CTR', 'Ad Relevance', 'Clicks', 'Impr.', 'CTR', 'Spend', 'Avg CPC', 'Conv.'], keywordRows)}
+  ${dataTable(['Keyword', 'Match Type', 'Clicks', 'Impr.', 'CTR', 'Spend', 'Avg CPC', 'Conv.', 'QS', 'Landing Page', 'Exp. CTR', 'Ad Relevance'], keywordRows)}
   ${insightBanner(d.keywordAnalysis)}
 
   <h2 class="section-title">Device Performance</h2>

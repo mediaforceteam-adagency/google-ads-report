@@ -95,16 +95,16 @@ export default function KeywordsTable({ keywords }: { keywords: KeywordRow[] }) 
           <tr className="bg-[#194A6A]">
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs whitespace-nowrap">Keyword</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs whitespace-nowrap">Match Type</th>
-            <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">QS</th>
-            <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">Landing Page</th>
-            <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">Exp. CTR</th>
-            <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">Ad Relevance</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-right whitespace-nowrap">Clicks</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-right whitespace-nowrap">Impr.</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-right whitespace-nowrap">CTR</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-right whitespace-nowrap">Spend</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-right whitespace-nowrap">Avg CPC</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-right whitespace-nowrap">Conv.</th>
+            <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">QS</th>
+            <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">Landing Page</th>
+            <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">Exp. CTR</th>
+            <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">Ad Relevance</th>
           </tr>
         </thead>
         <tbody>
@@ -121,10 +121,6 @@ export default function KeywordsTable({ keywords }: { keywords: KeywordRow[] }) 
                   {k.keyword}
                 </td>
                 <td className="px-4 py-3"><MatchBadge type={k.match_type} /></td>
-                <td className="px-4 py-3 text-center"><QualityBadge score={k.quality_score} /></td>
-                <td className="px-4 py-3 text-center"><QualityMetricBadge value={k.landing_page_exp} /></td>
-                <td className="px-4 py-3 text-center"><QualityMetricBadge value={k.expected_ctr} /></td>
-                <td className="px-4 py-3 text-center"><QualityMetricBadge value={k.ad_relevance} /></td>
                 <td className="px-4 py-3 text-right text-gray-700">{(k?.clicks ?? 0).toLocaleString('en-US')}</td>
                 <td className="px-4 py-3 text-right text-gray-700">{(k?.impressions ?? 0).toLocaleString('en-US')}</td>
                 <td className="px-4 py-3 text-right text-gray-700">{(k?.ctr ?? 0).toFixed(2)}%</td>
@@ -133,6 +129,10 @@ export default function KeywordsTable({ keywords }: { keywords: KeywordRow[] }) 
                 <td className={`px-4 py-3 text-right ${converted ? 'font-bold text-[#1e7a3c]' : 'text-gray-700'}`}>
                   {(k?.conversions ?? 0).toLocaleString('en-US')}
                 </td>
+                <td className="px-4 py-3 text-center"><QualityBadge score={k.quality_score} /></td>
+                <td className="px-4 py-3 text-center"><QualityMetricBadge value={k.landing_page_exp} /></td>
+                <td className="px-4 py-3 text-center"><QualityMetricBadge value={k.expected_ctr} /></td>
+                <td className="px-4 py-3 text-center"><QualityMetricBadge value={k.ad_relevance} /></td>
               </tr>
             )
           })}
