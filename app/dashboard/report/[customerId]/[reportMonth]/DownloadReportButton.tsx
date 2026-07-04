@@ -1,7 +1,7 @@
 'use client'
 
-import type { KeywordRow } from './KeywordsTable'
-import type { DeviceRow, HourlyRow, DayRow, WeeklyRow, AgeGenderRow } from './ReportCharts'
+import type { KeywordRow } from '@/components/report/KeywordsTable'
+import type { DeviceRow, HourlyRow, DayRow, WeeklyRow, AgeGenderRow } from '@/components/report/ReportCharts'
 import { MEDIAFORCE_LOGO_BASE64 } from '@/lib/logo'
 
 type Kpi = { label: string; value: string; prev: string; delta: string; deltaColor: string; accent: boolean }
@@ -125,6 +125,8 @@ function pct(n: number | null): string {
   return `${(n ?? 0).toFixed(2)}%`
 }
 
+const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+
 function formatHour(h: number): string {
   if (h === 0) return '12 AM'
   if (h < 12) return `${h} AM`
@@ -229,8 +231,20 @@ function buildReportHtml(d: {
     esc(dv.device), fmtNum(dv.clicks), fmtNum(dv.impressions), fmtCAD(dv.cost ?? 0), fmtNum(dv.conversions),
   ])
 
-  const hourlyRows = d.hourly.map((h) => [formatHour(h.hour), fmtNum(h.clicks), fmtNum(h.conversions)])
-  const dayRows = d.dayOfWeek.map((r) => [esc(r.day), fmtNum(r.clicks), fmtNum(r.conversions)])
+  // Always show all 24 hours, even ones with no recorded activity.
+  const hourlyByHour = new Map(d.hourly.map((h) => [h.hour, h]))
+  const hourlyRows = Array.from({ length: 24 }, (_, hour) => {
+    const h = hourlyByHour.get(hour)
+    return [formatHour(hour), fmtNum(h?.clicks ?? 0), fmtNum(h?.conversions ?? 0)]
+  })
+
+  const dayRows = [...d.dayOfWeek]
+    .sort((a, b) => {
+      const ai = DAY_ORDER.findIndex((day) => a.day?.startsWith(day.slice(0, 3)))
+      const bi = DAY_ORDER.findIndex((day) => b.day?.startsWith(day.slice(0, 3)))
+      return (ai === -1 ? 99 : ai) - (bi === -1 ? 99 : bi)
+    })
+    .map((r) => [esc(r.day), fmtNum(r.clicks), fmtNum(r.conversions)])
   const weeklyRows = d.weekly.map((r) => [esc(r.week_label), fmtCAD(r.cost ?? 0), fmtNum(r.conversions)])
   const ageGenderRows = d.ageGender.map((r) => [esc(r.type), esc(r.segment), fmtNum(r.clicks), fmtNum(r.conversions)])
 

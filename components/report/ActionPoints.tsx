@@ -6,9 +6,16 @@
 //   client_id text not null,
 //   report_month text not null,
 //   points jsonb not null default '[]'::jsonb,
+//   what_worked text not null default '',
+//   areas_for_attention text not null default '',
 //   updated_at timestamptz not null default now(),
 //   primary key (client_id, report_month)
 // );
+//
+// Existing installations (table already created before what_worked /
+// areas_for_attention existed) — also run:
+//   alter table action_points add column if not exists what_worked text not null default '';
+//   alter table action_points add column if not exists areas_for_attention text not null default '';
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
@@ -17,19 +24,24 @@ export default function ActionPoints({
   clientId,
   reportMonth,
   suggestedPoints,
+  readOnly = false,
+  initialPoints,
 }: {
   clientId: string
   reportMonth: string
   suggestedPoints?: string[]
+  readOnly?: boolean
+  initialPoints?: string[]
 }) {
-  const [points, setPoints] = useState(['', '', ''])
-  const [loading, setLoading] = useState(true)
+  const [points, setPoints] = useState<string[]>(initialPoints ?? ['', '', ''])
+  const [loading, setLoading] = useState(!readOnly)
   const [hasSaved, setHasSaved] = useState(false)
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
   const appliedSuggestions = useRef(false)
 
   useEffect(() => {
+    if (readOnly) return
     let cancelled = false
     const supabase = createClient()
 
@@ -56,17 +68,18 @@ export default function ActionPoints({
     return () => {
       cancelled = true
     }
-  }, [clientId, reportMonth])
+  }, [readOnly, clientId, reportMonth])
 
   // Pre-populate with Claude's suggested action points, but only once and only
   // when the client has no previously saved points — never clobber real data.
   useEffect(() => {
+    if (readOnly) return
     if (loading || hasSaved || appliedSuggestions.current) return
     if (suggestedPoints && suggestedPoints.length > 0) {
       setPoints(suggestedPoints)
       appliedSuggestions.current = true
     }
-  }, [loading, hasSaved, suggestedPoints])
+  }, [readOnly, loading, hasSaved, suggestedPoints])
 
   function update(index: number, value: string) {
     setPoints((prev) => prev.map((p, i) => (i === index ? value : p)))
@@ -94,6 +107,24 @@ export default function ActionPoints({
       setSaved(true)
       setTimeout(() => setSaved(false), 1500)
     }
+  }
+
+  if (readOnly) {
+    const list = points.map((p) => p.trim()).filter(Boolean)
+    return (
+      <ul className="space-y-3">
+        {list.length === 0 ? (
+          <li className="text-sm text-gray-400 italic">No action points recorded.</li>
+        ) : (
+          list.map((point, i) => (
+            <li key={i} className="flex items-start gap-3 text-sm text-gray-800">
+              <span className="w-1.5 h-1.5 rounded-full bg-navy shrink-0 mt-[7px]" />
+              <span>{point}</span>
+            </li>
+          ))
+        )}
+      </ul>
+    )
   }
 
   if (loading) {
