@@ -14,6 +14,9 @@ type Campaign = {
   cost: number | null; prev_cost: number | null
   clicks: number | null; impressions: number | null; conversions: number | null
   ctr: number | null; cpl: number | null
+  search_impression_share: number | null
+  search_lost_is_budget: number | null
+  search_lost_is_rank: number | null
 }
 
 type AdGroup = {
@@ -141,6 +144,10 @@ function pct(n: number | null): string {
   return `${(n ?? 0).toFixed(2)}%`
 }
 
+function pct1(n: number | null | undefined): string {
+  return n === null || n === undefined ? '--' : `${n.toFixed(1)}%`
+}
+
 const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
 function formatHour(hourValue: number | string): string {
@@ -174,6 +181,24 @@ function qsPill(score: number | null): string {
       ? 'background:#fff4e0;color:#a0670f'
       : 'background:#fce8e6;color:#c5221f'
   return `<span class="pill-status" style="${colors}">${score === null || score === undefined ? '—' : score}</span>`
+}
+
+const QUALITY_METRIC_COLORS: Record<string, string> = {
+  ABOVE_AVERAGE: 'background:#e6f4ea;color:#1e7a3c',
+  AVERAGE: 'background:#f1f3f4;color:#5f6368',
+  BELOW_AVERAGE: 'background:#fce8e6;color:#c5221f',
+}
+
+const QUALITY_METRIC_LABELS: Record<string, string> = {
+  ABOVE_AVERAGE: 'Above Avg',
+  AVERAGE: 'Average',
+  BELOW_AVERAGE: 'Below Avg',
+}
+
+function qualityMetricPill(value: string | null): string {
+  const colors = (value && QUALITY_METRIC_COLORS[value]) || 'background:#f1f3f4;color:#5f6368'
+  const label = (value && QUALITY_METRIC_LABELS[value]) || '--'
+  return `<span class="pill-status" style="${colors}">${label}</span>`
 }
 
 function convCell(value: number | null): string {
@@ -354,12 +379,16 @@ function buildReportHtml(d: {
     fmtNum(c.clicks),
     fmtNum(c.impressions),
     pct(c.ctr),
+    pct1(c.search_impression_share),
+    pct1(c.search_lost_is_budget),
+    pct1(c.search_lost_is_rank),
     convCell(c.conversions),
     cplCell(c.conversions, c.cpl),
   ])
   const campaignTotals = [
     'TOTAL', '', '', fmtCAD(d.totals.totalSpend), '<span style="color:#9aa5b1">—</span>',
     fmtNum(d.totals.totalClicks), fmtNum(d.totals.totalImpressions), pct(d.totals.ctr),
+    '<span style="color:#9aa5b1">—</span>', '<span style="color:#9aa5b1">—</span>', '<span style="color:#9aa5b1">—</span>',
     fmtNum(d.totals.totalConversions), d.totals.cplValue !== null ? fmtCAD(d.totals.cplValue, 2) : 'N/A',
   ]
 
@@ -387,6 +416,9 @@ function buildReportHtml(d: {
       `<span style="${converted ? 'font-weight:700;color:#111' : ''}">${esc(k.keyword)}</span>`,
       esc(k.match_type),
       qsPill(k.quality_score),
+      qualityMetricPill(k.landing_page_exp),
+      qualityMetricPill(k.expected_ctr),
+      qualityMetricPill(k.ad_relevance),
       fmtNum(k.clicks),
       fmtNum(k.impressions),
       pct(k.ctr),
@@ -574,7 +606,7 @@ function buildReportHtml(d: {
 
   <h2 class="section-title">Campaigns — ${esc(curMonthFull)} vs ${esc(prevMonthFull)}</h2>
   ${dataTable(
-    ['Campaign', 'Type', 'Status', `${curMonthShort} Spend`, `${prevMonthShort} Spend`, `${curMonthShort} Clicks`, `${curMonthShort} Impr.`, `${curMonthShort} CTR`, `${curMonthShort} Conv.`, `${curMonthShort} CPL`],
+    ['Campaign', 'Type', 'Status', `${curMonthShort} Spend`, `${prevMonthShort} Spend`, `${curMonthShort} Clicks`, `${curMonthShort} Impr.`, `${curMonthShort} CTR`, 'Search IS %', 'Lost IS Budget', 'Lost IS Rank', `${curMonthShort} Conv.`, `${curMonthShort} CPL`],
     campaignRows,
     campaignTotals
   )}
@@ -584,7 +616,7 @@ function buildReportHtml(d: {
   ${dataTable(['Ad Group', 'Campaign', 'Status', 'Clicks', 'Impr.', 'Spend (CAD)', 'Conv.', 'CTR', 'CPL'], adGroupRows)}
 
   <h2 class="section-title">Top Keywords — ${esc(curMonthFull)}, by Spend</h2>
-  ${dataTable(['Keyword', 'Match Type', 'QS', 'Clicks', 'Impr.', 'CTR', 'Spend', 'Avg CPC', 'Conv.'], keywordRows)}
+  ${dataTable(['Keyword', 'Match Type', 'QS', 'Landing Page', 'Exp. CTR', 'Ad Relevance', 'Clicks', 'Impr.', 'CTR', 'Spend', 'Avg CPC', 'Conv.'], keywordRows)}
   ${insightBanner(d.keywordAnalysis)}
 
   <h2 class="section-title">Device Performance</h2>

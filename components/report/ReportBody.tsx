@@ -29,6 +29,9 @@ export type Campaign = {
   cost: number | null; prev_cost: number | null
   clicks: number | null; impressions: number | null; conversions: number | null
   ctr: number | null; cpl: number | null
+  search_impression_share: number | null
+  search_lost_is_budget: number | null
+  search_lost_is_rank: number | null
 }
 
 export type AdGroup = {
@@ -67,6 +70,10 @@ function fmtNum(n: number | null) {
 
 function pct(n: number | null) {
   return `${(n ?? 0).toFixed(2)}%`
+}
+
+function pct1(n: number | null | undefined) {
+  return n === null || n === undefined ? '--' : `${n.toFixed(1)}%`
 }
 
 function mom(current: number | null, prev: number | null): number | null {
@@ -282,7 +289,8 @@ export default function ReportBody({
                         'Campaign', 'Type', 'Status',
                         `${curMonthShort} Spend`, `${prevMonthShort} Spend`,
                         `${curMonthShort} Clicks`, `${curMonthShort} Impr.`,
-                        `${curMonthShort} CTR`, `${curMonthShort} Conv.`, `${curMonthShort} CPL`,
+                        `${curMonthShort} CTR`, 'Search IS %', 'Lost IS Budget', 'Lost IS Rank',
+                        `${curMonthShort} Conv.`, `${curMonthShort} CPL`,
                       ].map((h) => (
                         <th
                           key={h}
@@ -315,6 +323,9 @@ export default function ReportBody({
                         <td className="px-4 py-3 text-right text-gray-700">{fmtNum(c.clicks)}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{fmtNum(c.impressions)}</td>
                         <td className="px-4 py-3 text-right text-gray-700">{pct(c.ctr)}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">{pct1(c.search_impression_share)}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">{pct1(c.search_lost_is_budget)}</td>
+                        <td className="px-4 py-3 text-right text-gray-700">{pct1(c.search_lost_is_rank)}</td>
                         <td className="px-4 py-3 text-right"><ConvCell value={c.conversions} /></td>
                         <td className="px-4 py-3 text-right text-gray-700"><CplCell conversions={c.conversions} cpl={c.cpl} /></td>
                       </tr>
@@ -326,6 +337,9 @@ export default function ReportBody({
                       <td className="px-4 py-3 text-right text-gray-900">{fmtNum(totalClicks)}</td>
                       <td className="px-4 py-3 text-right text-gray-900">{fmtNum(totalImpressions)}</td>
                       <td className="px-4 py-3 text-right text-gray-900">{pct(ctr)}</td>
+                      <td className="px-4 py-3 text-right text-gray-400">—</td>
+                      <td className="px-4 py-3 text-right text-gray-400">—</td>
+                      <td className="px-4 py-3 text-right text-gray-400">—</td>
                       <td className="px-4 py-3 text-right text-gray-900">{fmtNum(totalConversions)}</td>
                       <td className="px-4 py-3 text-right text-gray-900">{cplValue !== null ? fmtCAD(cplValue, 2) : 'N/A'}</td>
                     </tr>

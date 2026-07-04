@@ -3,6 +3,9 @@ export type KeywordRow = {
   match_type: string
   ad_group_name: string
   quality_score: number | null
+  landing_page_exp: string | null
+  expected_ctr: string | null
+  ad_relevance: string | null
   clicks: number | null
   impressions: number | null
   ctr: number | null
@@ -31,6 +34,28 @@ function QualityBadge({ score }: { score: number | null }) {
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-semibold ring-1 ${qualityScoreClass(score)}`}>
       {score === null || score === undefined ? '—' : score}
+    </span>
+  )
+}
+
+const QUALITY_METRIC_CLASS: Record<string, string> = {
+  ABOVE_AVERAGE: 'bg-[#e6f4ea] text-[#1e7a3c]',
+  AVERAGE: 'bg-[#f1f3f4] text-[#5f6368]',
+  BELOW_AVERAGE: 'bg-[#fce8e6] text-[#c5221f]',
+}
+
+const QUALITY_METRIC_LABEL: Record<string, string> = {
+  ABOVE_AVERAGE: 'Above Avg',
+  AVERAGE: 'Average',
+  BELOW_AVERAGE: 'Below Avg',
+}
+
+function QualityMetricBadge({ value }: { value: string | null }) {
+  const cls = (value && QUALITY_METRIC_CLASS[value]) || 'bg-[#f1f3f4] text-[#5f6368]'
+  const label = (value && QUALITY_METRIC_LABEL[value]) || '--'
+  return (
+    <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${cls}`}>
+      {label}
     </span>
   )
 }
@@ -71,6 +96,9 @@ export default function KeywordsTable({ keywords }: { keywords: KeywordRow[] }) 
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs whitespace-nowrap">Keyword</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs whitespace-nowrap">Match Type</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">QS</th>
+            <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">Landing Page</th>
+            <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">Exp. CTR</th>
+            <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-center whitespace-nowrap">Ad Relevance</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-right whitespace-nowrap">Clicks</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-right whitespace-nowrap">Impr.</th>
             <th className="px-4 py-3 font-semibold text-white uppercase text-xs text-right whitespace-nowrap">CTR</th>
@@ -94,6 +122,9 @@ export default function KeywordsTable({ keywords }: { keywords: KeywordRow[] }) 
                 </td>
                 <td className="px-4 py-3"><MatchBadge type={k.match_type} /></td>
                 <td className="px-4 py-3 text-center"><QualityBadge score={k.quality_score} /></td>
+                <td className="px-4 py-3 text-center"><QualityMetricBadge value={k.landing_page_exp} /></td>
+                <td className="px-4 py-3 text-center"><QualityMetricBadge value={k.expected_ctr} /></td>
+                <td className="px-4 py-3 text-center"><QualityMetricBadge value={k.ad_relevance} /></td>
                 <td className="px-4 py-3 text-right text-gray-700">{(k?.clicks ?? 0).toLocaleString('en-US')}</td>
                 <td className="px-4 py-3 text-right text-gray-700">{(k?.impressions ?? 0).toLocaleString('en-US')}</td>
                 <td className="px-4 py-3 text-right text-gray-700">{(k?.ctr ?? 0).toFixed(2)}%</td>
