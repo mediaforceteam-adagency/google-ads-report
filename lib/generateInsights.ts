@@ -19,7 +19,7 @@ export type Campaign = { campaign_name: string; status: string; cost: number | n
 export type Keyword = { keyword: string; match_type: string; cost: number | null; clicks: number | null; conversions: number | null; quality_score: number | null }
 export type Device = { device: string; clicks: number | null; cost: number | null; conversions: number | null }
 export type DayRow = { day: string; clicks: number | null; conversions: number | null }
-export type HourlyRow = { hour: number; clicks: number | null; conversions: number | null }
+export type HourlyRow = { hour: number | string; clicks: number | null; conversions: number | null }
 export type AgeGenderRow = { type: string; segment: string; clicks: number | null; conversions: number | null }
 
 export type InsightsRequestBody = {

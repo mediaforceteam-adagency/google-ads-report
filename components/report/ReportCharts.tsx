@@ -21,7 +21,7 @@ import {
 import SectionHeading from './SectionHeading'
 
 export type DeviceRow = { device: string; clicks: number | null; impressions: number | null; cost: number | null; conversions: number | null }
-export type HourlyRow = { hour: number; clicks: number; conversions: number }
+export type HourlyRow = { hour: number | string; clicks: number; conversions: number }
 export type DayRow = { day: string; clicks: number; conversions: number }
 export type WeeklyRow = { week_label: string; clicks: number; cost: number; conversions: number }
 export type AgeGenderRow = { type: string; segment: string; clicks: number; conversions: number }
@@ -49,7 +49,8 @@ function fmtNum(n: number | null | undefined) {
   return (n ?? 0).toLocaleString('en-US')
 }
 
-function formatHour(h: number) {
+function formatHour(hourValue: number | string) {
+  const h = Number(hourValue)
   if (h === 0) return '12 AM'
   if (h < 12) return `${h} AM`
   if (h === 12) return '12 PM'
@@ -218,8 +219,12 @@ function DeviceChart({ data }: { data: DeviceRow[] }) {
 // ─── Section 12: Hourly ────────────────────────────────────────────────────────
 
 function HourlyChart({ data }: { data: HourlyRow[] }) {
-  const chartData = data.map((d) => ({ ...d, label: formatHour(d.hour) }))
-  const byHour = new Map(data.map((d) => [d.hour, d]))
+  // `hour` comes back from Supabase as text, so sort numerically (not
+  // lexicographically) and key the lookup map on the numeric value —
+  // otherwise "0", "1", "10"... sorts/matches incorrectly.
+  const sorted = [...data].sort((a, b) => Number(a.hour) - Number(b.hour))
+  const chartData = sorted.map((d) => ({ ...d, label: formatHour(d.hour) }))
+  const byHour = new Map(sorted.map((d) => [Number(d.hour), d]))
 
   return (
     <section className={CHART_SECTION_CLASS}>

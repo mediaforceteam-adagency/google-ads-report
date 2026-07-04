@@ -143,7 +143,8 @@ function pct(n: number | null): string {
 
 const DAY_ORDER = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
 
-function formatHour(h: number): string {
+function formatHour(hourValue: number | string): string {
+  const h = Number(hourValue)
   if (h === 0) return '12 AM'
   if (h < 12) return `${h} AM`
   if (h === 12) return '12 PM'
@@ -403,7 +404,9 @@ function buildReportHtml(d: {
   const deviceCostBars = hBarChart(d.devices.map((dv) => ({ label: dv.device, value: dv.cost ?? 0, display: fmtCAD(dv.cost ?? 0), color: '#F5A623' })))
 
   // ── Section 12 hourly ──
-  const hourlyByHour = new Map(d.hourly.map((h) => [h.hour, h]))
+  // `hour` comes back from Supabase as text, so key the lookup map on the
+  // numeric value — otherwise "0", "1", "10"... never matches the 0-23 loop.
+  const hourlyByHour = new Map(d.hourly.map((h) => [Number(h.hour), h]))
   const hourlyFull = Array.from({ length: 24 }, (_, hour) => hourlyByHour.get(hour) ?? { hour, clicks: 0, conversions: 0 })
   const hourlyRows = hourlyFull.map((h) => [formatHour(h.hour), fmtNum(h.clicks), fmtNum(h.conversions)])
   const hourlyChart = groupedVBarChart(
