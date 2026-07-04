@@ -101,6 +101,17 @@ export default async function PublicReportPage({
         .maybeSingle(),
     ])
 
+  // These were previously silently swallowed — an RLS policy or query error
+  // would just fall back to an empty array with no way to tell why a public
+  // report was missing data that the (authenticated) dashboard could see.
+  for (const [name, res] of Object.entries({
+    summary: summaryRes, campaigns: campaignsRes, adGroups: adGroupsRes, keywords: keywordsRes,
+    devices: devicesRes, hourly: hourlyRes, dayOfWeek: dowRes, weekly: weeklyRes,
+    ageGender: ageGenderRes, insights: insightsRes,
+  })) {
+    if (res.error) console.error(`Public report: failed to fetch ${name}:`, res.error)
+  }
+
   const s = summaryRes.data as Summary | null
   const campaigns = (campaignsRes.data ?? []) as Campaign[]
   const adGroups = (adGroupsRes.data ?? []) as AdGroup[]

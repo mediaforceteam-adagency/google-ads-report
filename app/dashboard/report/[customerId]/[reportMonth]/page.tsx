@@ -94,6 +94,14 @@ export default async function ReportPage({
     supabase.from('monthly_summary').select('report_month').eq('client_id', cid).order('report_month', { ascending: false }),
   ])
 
+  for (const [name, res] of Object.entries({
+    summary: summaryRes, campaigns: campaignsRes, adGroups: adGroupsRes, keywords: keywordsRes,
+    devices: devicesRes, hourly: hourlyRes, dayOfWeek: dowRes, weekly: weeklyRes,
+    ageGender: ageGenderRes, months: monthsRes,
+  })) {
+    if (res.error) console.error(`Dashboard report: failed to fetch ${name}:`, res.error)
+  }
+
   const s = summaryRes.data as Summary | null
   const campaigns = (campaignsRes.data ?? []) as Campaign[]
   const adGroups = (adGroupsRes.data ?? []) as AdGroup[]
