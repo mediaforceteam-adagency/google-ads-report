@@ -410,6 +410,12 @@ function buildReportHtml(d: {
 
   // ── Section 9 top 10 keywords ──
   const topKeywords = topKeywordsBySpend(d.keywords)
+  const hasKeywordSpend = topKeywords.some((k) => (k.cost ?? 0) > 0)
+  const keywordsEmptyState = `<div style="background:#f8faff;border:1px solid #dce6f5;border-radius:8px;padding:32px 24px;text-align:center;color:#6b7280">
+      <div style="font-size:32px;margin-bottom:8px">🔍</div>
+      <div style="font-size:14px;font-weight:600;color:#374151;margin-bottom:4px">No Keyword Activity This Month</div>
+      <div style="font-size:13px;color:#6b7280">No keywords generated impressions or clicks in this reporting period.</div>
+    </div>`
   const keywordRows = topKeywords.map((k) => {
     const converted = (k.conversions ?? 0) > 0
     return [
@@ -616,7 +622,11 @@ function buildReportHtml(d: {
   ${dataTable(['Ad Group', 'Campaign', 'Status', 'Clicks', 'Impr.', 'Spend (CAD)', 'Conv.', 'CTR', 'CPL'], adGroupRows)}
 
   <h2 class="section-title">Top Keywords — ${esc(curMonthFull)}, by Spend</h2>
-  ${dataTable(['Keyword', 'Match Type', 'Clicks', 'Impr.', 'CTR', 'Spend', 'Avg CPC', 'Conv.', 'QS', 'Landing Page', 'Exp. CTR', 'Ad Relevance'], keywordRows)}
+  ${
+    hasKeywordSpend
+      ? dataTable(['Keyword', 'Match Type', 'Clicks', 'Impr.', 'CTR', 'Spend', 'Avg CPC', 'Conv.', 'QS', 'Landing Page', 'Exp. CTR', 'Ad Relevance'], keywordRows)
+      : keywordsEmptyState
+  }
   ${insightBanner(d.keywordAnalysis)}
 
   <h2 class="section-title">Device Performance</h2>

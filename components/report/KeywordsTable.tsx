@@ -83,9 +83,29 @@ export function topKeywordsBySpend(keywords: KeywordRow[]) {
 
 export default function KeywordsTable({ keywords }: { keywords: KeywordRow[] }) {
   const top = topKeywordsBySpend(keywords)
+  const hasSpend = top.some((k) => (k.cost ?? 0) > 0)
 
-  if (top.length === 0) {
-    return <p className="text-gray-400 text-sm italic">No keyword data for this month.</p>
+  if (!hasSpend) {
+    return (
+      <div
+        style={{
+          background: '#f8faff',
+          border: '1px solid #dce6f5',
+          borderRadius: 8,
+          padding: '32px 24px',
+          textAlign: 'center',
+          color: '#6b7280',
+        }}
+      >
+        <div style={{ fontSize: 32, marginBottom: 8 }}>🔍</div>
+        <div style={{ fontSize: 14, fontWeight: 600, color: '#374151', marginBottom: 4 }}>
+          No Keyword Activity This Month
+        </div>
+        <div style={{ fontSize: 13, color: '#6b7280' }}>
+          No keywords generated impressions or clicks in this reporting period.
+        </div>
+      </div>
+    )
   }
 
   return (
