@@ -1,10 +1,10 @@
 'use client'
 
-import { useCallback, useEffect, useState } from 'react'
+import { createContext, useContext, useEffect, useState } from 'react'
 import SectionHeading from './SectionHeading'
 import ActionPoints from './ActionPoints'
 import { createClient } from '@/lib/supabase/client'
-import { bulletText } from '@/lib/insightsText'
+import { bulletText, parseBullets } from '@/lib/insightsText'
 import type { KeywordRow } from './KeywordsTable'
 import type { DeviceRow, HourlyRow, DayRow, AgeGenderRow } from './ReportCharts'
 
@@ -23,33 +23,83 @@ type Summary = {
   prevConversions: number
 }
 
-type Insights = {
+export type InsightsBundle = {
   whatWorked: string[]
   areasForAttention: string[]
   actionPoints: string[]
+  accountSummary: string
+  campaignInsight: string
+  campaignAnalysis: string
+  keywordAnalysis: string
 }
 
-function Spinner() {
-  return (
-    <div className="flex items-center gap-2 text-sm text-gray-400 py-6 justify-center">
-      <svg className="w-4 h-4 animate-spin" fill="none" viewBox="0 0 24 24">
-        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v4a4 4 0 00-4 4H4z" />
-      </svg>
-      Analyzing performance data…
-    </div>
+export type InitialInsights = {
+  whatWorked?: string
+  areasForAttention?: string
+  actionPoints?: string[]
+  accountSummary?: string
+  campaignInsight?: string
+  campaignAnalysis?: string
+  keywordAnalysis?: string
+}
+
+const EMPTY_BUNDLE: InsightsBundle = {
+  whatWorked: [],
+  areasForAttention: [],
+  actionPoints: [],
+  accountSummary: '',
+  campaignInsight: '',
+  campaignAnalysis: '',
+  keywordAnalysis: '',
+}
+
+type InsightsContextValue = {
+  bundle: InsightsBundle
+  loading: boolean
+  error: string | null
+  readOnly: boolean
+  clientId: string
+  reportMonth: string
+}
+
+const InsightsContext = createContext<InsightsContextValue | null>(null)
+
+function useInsightsContext() {
+  const ctx = useContext(InsightsContext)
+  if (!ctx) throw new Error('Insights components must be rendered inside <InsightsProvider>.')
+  return ctx
+}
+
+function hasFullInitialData(initial?: InitialInsights) {
+  return !!(
+    initial?.accountSummary?.trim() &&
+    initial?.campaignInsight?.trim() &&
+    initial?.campaignAnalysis?.trim() &&
+    initial?.keywordAnalysis?.trim() &&
+    initial?.whatWorked?.trim() &&
+    initial?.areasForAttention?.trim()
   )
 }
 
-async function persistText(clientId: string, reportMonth: string, field: 'what_worked' | 'areas_for_attention', value: string) {
+async function persistBundle(clientId: string, reportMonth: string, bundle: InsightsBundle) {
   const supabase = createClient()
   await supabase.from('action_points').upsert(
-    { client_id: clientId, report_month: reportMonth, [field]: value, updated_at: new Date().toISOString() },
+    {
+      client_id: clientId,
+      report_month: reportMonth,
+      what_worked: bulletText(bundle.whatWorked),
+      areas_for_attention: bulletText(bundle.areasForAttention),
+      account_summary: bundle.accountSummary,
+      campaign_insight: bundle.campaignInsight,
+      campaign_analysis: bundle.campaignAnalysis,
+      keyword_analysis: bundle.keywordAnalysis,
+      updated_at: new Date().toISOString(),
+    },
     { onConflict: 'client_id,report_month' }
   )
 }
 
-export default function InsightsPanel({
+export function InsightsProvider({
   clientId,
   reportMonth,
   clientName,
@@ -62,9 +112,9 @@ export default function InsightsPanel({
   hourly,
   ageGender,
   readOnly = false,
-  initialWhatWorked,
-  initialAreasForAttention,
-  initialActionPoints,
+  initial,
+  onInsightsGenerated,
+  children,
 }: {
   clientId: string
   reportMonth: string
@@ -78,153 +128,243 @@ export default function InsightsPanel({
   hourly: HourlyRow[]
   ageGender: AgeGenderRow[]
   readOnly?: boolean
-  initialWhatWorked?: string
-  initialAreasForAttention?: string
-  initialActionPoints?: string[]
+  initial?: InitialInsights
+  onInsightsGenerated?: (bundle: InsightsBundle) => void
+  children: React.ReactNode
 }) {
-  const [insights, setInsights] = useState<Insights | null>(null)
-  const [loading, setLoading] = useState(!readOnly)
-  const [error, setError] = useState<string | null>(null)
-  const [generation, setGeneration] = useState(0)
+  const initialBundle: InsightsBundle = {
+    whatWorked: parseBullets(initial?.whatWorked),
+    areasForAttention: parseBullets(initial?.areasForAttention),
+    actionPoints: initial?.actionPoints ?? [],
+    accountSummary: initial?.accountSummary ?? '',
+    campaignInsight: initial?.campaignInsight ?? '',
+    campaignAnalysis: initial?.campaignAnalysis ?? '',
+    keywordAnalysis: initial?.keywordAnalysis ?? '',
+  }
 
-  const generate = useCallback(async () => {
+  const [bundle, setBundle] = useState<InsightsBundle>(initialBundle)
+  const [loading, setLoading] = useState(!readOnly && !hasFullInitialData(initial))
+  const [error, setError] = useState<string | null>(null)
+
+  // Notify the parent (e.g. a sibling download/export button that can't read
+  // this context directly) whenever the current insights bundle changes.
+  useEffect(() => {
+    onInsightsGenerated?.(bundle)
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [bundle])
+
+  useEffect(() => {
     if (readOnly) return
-    setLoading(true)
-    setError(null)
-    try {
-      const res = await fetch('/api/insights', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          clientName,
-          reportMonth: reportMonthLabel,
-          summary,
-          campaigns,
-          keywords,
-          devices,
-          dayOfWeek,
-          hourly,
-          ageGender,
-        }),
-      })
-      const data = await res.json()
-      if (!res.ok) throw new Error(data.error ?? 'Failed to generate insights.')
-      setInsights(data as Insights)
-      setGeneration((g) => g + 1)
-      // Persist the freshly generated text so the public report page can
-      // display it read-only without calling Claude again.
-      persistText(clientId, reportMonth, 'what_worked', bulletText((data as Insights).whatWorked))
-      persistText(clientId, reportMonth, 'areas_for_attention', bulletText((data as Insights).areasForAttention))
-    } catch (err) {
-      setError(err instanceof Error ? err.message : 'Failed to generate insights.')
-    } finally {
-      setLoading(false)
+    if (hasFullInitialData(initial)) return
+
+    let cancelled = false
+    async function generate() {
+      setLoading(true)
+      setError(null)
+      try {
+        const res = await fetch('/api/insights', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            clientName,
+            reportMonth: reportMonthLabel,
+            summary,
+            campaigns,
+            keywords,
+            devices,
+            dayOfWeek,
+            hourly,
+            ageGender,
+          }),
+        })
+        const data = await res.json()
+        if (!res.ok) throw new Error(data.error ?? 'Failed to generate insights.')
+        if (cancelled) return
+        const next: InsightsBundle = {
+          whatWorked: data.whatWorked ?? [],
+          areasForAttention: data.areasForAttention ?? [],
+          actionPoints: data.actionPoints ?? [],
+          accountSummary: data.accountSummary ?? '',
+          campaignInsight: data.campaignInsight ?? '',
+          campaignAnalysis: data.campaignAnalysis ?? '',
+          keywordAnalysis: data.keywordAnalysis ?? '',
+        }
+        setBundle(next)
+        persistBundle(clientId, reportMonth, next)
+      } catch (err) {
+        if (!cancelled) setError(err instanceof Error ? err.message : 'Failed to generate insights.')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    generate()
+
+    return () => {
+      cancelled = true
     }
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [readOnly, clientId, reportMonth])
 
-  useEffect(() => {
-    if (readOnly) return
-    generate()
-  }, [readOnly, generate])
-
-  if (readOnly) {
-    return (
-      <>
-        <section>
-          <SectionHeading>Performance Analysis</SectionHeading>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-            <div className="bg-white border border-[#dce6f5] rounded-lg px-5 py-[18px]">
-              <h3 className="text-[#1e7a3c] font-bold text-sm mb-3">✅ What Worked — {reportMonthLabel}</h3>
-              <p className="text-sm text-gray-800 whitespace-pre-wrap">
-                {initialWhatWorked && initialWhatWorked.trim().length > 0 ? (
-                  initialWhatWorked
-                ) : (
-                  <span className="text-gray-400 italic">No notes added.</span>
-                )}
-              </p>
-            </div>
-            <div className="bg-white border border-[#dce6f5] rounded-lg px-5 py-[18px]">
-              <h3 className="text-[#c5221f] font-bold text-sm mb-3">⚠️ Areas for Attention</h3>
-              <p className="text-sm text-gray-800 whitespace-pre-wrap">
-                {initialAreasForAttention && initialAreasForAttention.trim().length > 0 ? (
-                  initialAreasForAttention
-                ) : (
-                  <span className="text-gray-400 italic">No notes added.</span>
-                )}
-              </p>
-            </div>
-          </div>
-        </section>
-
-        <section>
-          <SectionHeading>Action Points &amp; Recommendations</SectionHeading>
-          <div className="bg-white rounded-lg border border-[#dce6f5] p-6">
-            <ActionPoints clientId={clientId} reportMonth={reportMonth} readOnly initialPoints={initialActionPoints} />
-          </div>
-        </section>
-      </>
-    )
-  }
-
   return (
-    <>
-      <section>
-        <SectionHeading>Performance Analysis</SectionHeading>
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-          <div className="bg-white border border-[#dce6f5] rounded-lg px-5 py-[18px]">
-            <h3 className="text-[#1e7a3c] font-bold text-sm mb-3">✅ What Worked — {reportMonthLabel}</h3>
-            {loading ? (
-              <Spinner />
-            ) : (
-              <textarea
-                id="pa-what-worked"
-                key={`what-worked-${generation}`}
-                defaultValue={bulletText(insights?.whatWorked)}
-                placeholder="Add what worked this month..."
-                rows={8}
-                onBlur={(e) => persistText(clientId, reportMonth, 'what_worked', e.target.value)}
-                className="w-full text-sm text-gray-800 border border-[#dce6f5] rounded-lg px-3 py-2 resize-none outline-none focus:border-navy focus:ring-2 focus:ring-navy/10 placeholder-gray-400 transition"
-              />
-            )}
-          </div>
-          <div className="bg-white border border-[#dce6f5] rounded-lg px-5 py-[18px]">
-            <h3 className="text-[#c5221f] font-bold text-sm mb-3">⚠️ Areas for Attention</h3>
-            {loading ? (
-              <Spinner />
-            ) : (
-              <textarea
-                id="pa-areas-attention"
-                key={`areas-attention-${generation}`}
-                defaultValue={bulletText(insights?.areasForAttention)}
-                placeholder="Add areas needing attention..."
-                rows={8}
-                onBlur={(e) => persistText(clientId, reportMonth, 'areas_for_attention', e.target.value)}
-                className="w-full text-sm text-gray-800 border border-[#dce6f5] rounded-lg px-3 py-2 resize-none outline-none focus:border-navy focus:ring-2 focus:ring-navy/10 placeholder-gray-400 transition"
-              />
-            )}
-          </div>
-        </div>
-
-        {error && <p className="text-[#c5221f] text-xs mt-3">{error}</p>}
-
-        <div className="mt-4 flex justify-end">
-          <button
-            onClick={generate}
-            disabled={loading}
-            className="px-4 py-2 bg-[#F5A623] hover:bg-[#e0941f] disabled:opacity-60 text-white text-sm font-semibold rounded-lg transition"
-          >
-            {loading ? 'Generating…' : '↻ Regenerate Insights'}
-          </button>
-        </div>
-      </section>
-
-      <section>
-        <SectionHeading>Action Points &amp; Recommendations</SectionHeading>
-        <div className="bg-white rounded-lg border border-[#dce6f5] p-6">
-          <ActionPoints clientId={clientId} reportMonth={reportMonth} suggestedPoints={insights?.actionPoints} />
-        </div>
-      </section>
-    </>
+    <InsightsContext.Provider value={{ bundle, loading, error, readOnly, clientId, reportMonth }}>
+      {children}
+    </InsightsContext.Provider>
   )
 }
+
+// ─── Blue insight banner (Sections 4, 7, 10) + warning variant (Section 5) ────
+
+function BannerSkeleton() {
+  return (
+    <div className="mt-4 bg-[#eef4ff] border-l-4 border-[#1b5ea6] rounded-r-md px-[18px] py-3.5">
+      <div className="h-3.5 bg-[#d7e4f7] rounded animate-pulse w-3/4" />
+    </div>
+  )
+}
+
+export function InsightBanner({
+  field,
+  tone = 'info',
+}: {
+  field: keyof Pick<InsightsBundle, 'accountSummary' | 'campaignInsight' | 'campaignAnalysis' | 'keywordAnalysis'>
+  tone?: 'info' | 'warning'
+}) {
+  const { bundle, loading } = useInsightsContext()
+
+  if (loading) return <BannerSkeleton />
+
+  const text = bundle[field]
+  if (!text) return null
+
+  const cls =
+    tone === 'warning'
+      ? 'bg-[#fff8ec] border-[#F5A623] text-[#7a5210]'
+      : 'bg-[#eef4ff] border-[#1b5ea6] text-gray-800'
+
+  return (
+    <div className={`mt-4 rounded-r-md px-[18px] py-3.5 text-sm leading-relaxed border-l-4 ${cls}`}>
+      {text}
+    </div>
+  )
+}
+
+// ─── Section 16: Performance Analysis (premium cards) ─────────────────────────
+
+function BulletCard({
+  title,
+  titleColor,
+  items,
+  mark,
+  markBg,
+  markColor,
+  gradient,
+  borderTop,
+}: {
+  title: string
+  titleColor: string
+  items: string[]
+  mark: string
+  markBg: string
+  markColor: string
+  gradient: string
+  borderTop: string
+}) {
+  return (
+    <div
+      className="rounded-xl p-6"
+      style={{
+        background: gradient,
+        borderTop: `4px solid ${borderTop}`,
+        boxShadow: '0 4px 20px rgba(0,0,0,0.08)',
+      }}
+    >
+      <h3 className="text-[15px] font-bold mb-3" style={{ color: titleColor }}>
+        {title}
+      </h3>
+      {items.length === 0 ? (
+        <p className="text-sm text-gray-400 italic">No notes added.</p>
+      ) : (
+        <ul>
+          {items.map((item, i) => (
+            <li
+              key={i}
+              className={`flex items-start gap-3 py-2 text-sm text-[#1a1a1a] ${i < items.length - 1 ? 'border-b border-[#f0f4fa]' : ''}`}
+            >
+              <span
+                className="w-5 h-5 rounded-full flex items-center justify-center text-[11px] font-bold shrink-0 mt-0.5"
+                style={{ background: markBg, color: markColor }}
+              >
+                {mark}
+              </span>
+              <span>{item}</span>
+            </li>
+          ))}
+        </ul>
+      )}
+    </div>
+  )
+}
+
+function PerformanceAnalysis({ reportMonthLabel }: { reportMonthLabel: string }) {
+  const { bundle, loading } = useInsightsContext()
+
+  return (
+    <section>
+      <SectionHeading>Performance Analysis</SectionHeading>
+      {loading ? (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <BannerSkeleton />
+          <BannerSkeleton />
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
+          <BulletCard
+            title={`✅ What Worked — ${reportMonthLabel}`}
+            titleColor="#1e7a3c"
+            items={bundle.whatWorked}
+            mark="✓"
+            markBg="#e6f4ea"
+            markColor="#1e7a3c"
+            gradient="linear-gradient(135deg, #f0fdf4 0%, #ffffff 100%)"
+            borderTop="#1e7a3c"
+          />
+          <BulletCard
+            title="⚠️ Areas for Attention"
+            titleColor="#c5221f"
+            items={bundle.areasForAttention}
+            mark="!"
+            markBg="#fce8e6"
+            markColor="#c5221f"
+            gradient="linear-gradient(135deg, #fff5f5 0%, #ffffff 100%)"
+            borderTop="#c5221f"
+          />
+        </div>
+      )}
+    </section>
+  )
+}
+
+// ─── Section 17: Action Points & Recommendations ──────────────────────────────
+
+function ActionPointsSection({ initialActionPoints }: { initialActionPoints?: string[] }) {
+  const { bundle, loading, readOnly, clientId, reportMonth } = useInsightsContext()
+
+  return (
+    <section>
+      <SectionHeading>Action Points &amp; Recommendations</SectionHeading>
+      {loading ? (
+        <p className="text-sm text-gray-400 italic">Generating recommendations…</p>
+      ) : (
+        <ActionPoints
+          clientId={clientId}
+          reportMonth={reportMonth}
+          readOnly={readOnly}
+          suggestedPoints={bundle.actionPoints}
+          initialPoints={initialActionPoints}
+        />
+      )}
+    </section>
+  )
+}
+
+export { PerformanceAnalysis, ActionPointsSection }

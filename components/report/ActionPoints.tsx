@@ -8,17 +8,72 @@
 //   points jsonb not null default '[]'::jsonb,
 //   what_worked text not null default '',
 //   areas_for_attention text not null default '',
+//   account_summary text not null default '',
+//   campaign_insight text not null default '',
+//   campaign_analysis text not null default '',
+//   keyword_analysis text not null default '',
 //   updated_at timestamptz not null default now(),
 //   primary key (client_id, report_month)
 // );
 //
-// Existing installations (table already created before what_worked /
-// areas_for_attention existed) — also run:
+// Existing installations — also run:
 //   alter table action_points add column if not exists what_worked text not null default '';
 //   alter table action_points add column if not exists areas_for_attention text not null default '';
+//   alter table action_points add column if not exists account_summary text not null default '';
+//   alter table action_points add column if not exists campaign_insight text not null default '';
+//   alter table action_points add column if not exists campaign_analysis text not null default '';
+//   alter table action_points add column if not exists keyword_analysis text not null default '';
 
 import { useEffect, useRef, useState } from 'react'
 import { createClient } from '@/lib/supabase/client'
+
+function ActionCard({
+  index,
+  point,
+  readOnly,
+  onChange,
+  onRemove,
+}: {
+  index: number
+  point: string
+  readOnly: boolean
+  onChange?: (value: string) => void
+  onRemove?: () => void
+}) {
+  return (
+    <div
+      className="flex items-start gap-5 bg-white rounded-xl border-l-4 border-[#F5A623] px-6 py-5 transition-shadow duration-200 hover:shadow-[0_4px_20px_rgba(0,0,0,0.12)]"
+      style={{ boxShadow: '0 2px 12px rgba(0,0,0,0.06)' }}
+    >
+      <span className="text-[40px] font-black leading-none text-[#F5A623] shrink-0">{index + 1}</span>
+      <div className="flex-1 min-w-0 pt-2">
+        {readOnly ? (
+          <p className="text-sm text-[#1a1a1a] leading-relaxed">{point}</p>
+        ) : (
+          <input
+            type="text"
+            value={point}
+            onChange={(e) => onChange?.(e.target.value)}
+            placeholder={`Action point ${index + 1}…`}
+            data-action-point-input
+            className="w-full text-sm text-[#1a1a1a] outline-none placeholder-gray-400 bg-transparent"
+          />
+        )}
+      </div>
+      {!readOnly && (
+        <button
+          onClick={onRemove}
+          className="text-gray-300 hover:text-red-500 transition shrink-0 mt-2"
+          aria-label="Delete action point"
+        >
+          <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+          </svg>
+        </button>
+      )}
+    </div>
+  )
+}
 
 export default function ActionPoints({
   clientId,
@@ -112,18 +167,13 @@ export default function ActionPoints({
   if (readOnly) {
     const list = points.map((p) => p.trim()).filter(Boolean)
     return (
-      <ul className="space-y-3">
+      <div className="space-y-3">
         {list.length === 0 ? (
-          <li className="text-sm text-gray-400 italic">No action points recorded.</li>
+          <p className="text-sm text-gray-400 italic">No action points recorded.</p>
         ) : (
-          list.map((point, i) => (
-            <li key={i} className="flex items-start gap-3 text-sm text-gray-800">
-              <span className="w-1.5 h-1.5 rounded-full bg-navy shrink-0 mt-[7px]" />
-              <span>{point}</span>
-            </li>
-          ))
+          list.map((point, i) => <ActionCard key={i} index={i} point={point} readOnly />)
         )}
-      </ul>
+      </div>
     )
   }
 
@@ -132,29 +182,17 @@ export default function ActionPoints({
   }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
       <div id="action-points-list" className="space-y-3">
         {points.map((point, i) => (
-          <div key={i} className="flex items-center gap-3">
-            <span className="w-1.5 h-1.5 rounded-full bg-navy shrink-0" />
-            <input
-              type="text"
-              value={point}
-              onChange={(e) => update(i, e.target.value)}
-              placeholder={`Action point ${i + 1}…`}
-              data-action-point-input
-              className="flex-1 text-sm text-gray-800 border border-[#dce6f5] rounded-lg px-3 py-2 outline-none focus:border-navy focus:ring-2 focus:ring-navy/10 placeholder-gray-400 transition"
-            />
-            <button
-              onClick={() => remove(i)}
-              className="text-red-500 hover:text-red-600 transition shrink-0"
-              aria-label="Delete action point"
-            >
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
-            </button>
-          </div>
+          <ActionCard
+            key={i}
+            index={i}
+            point={point}
+            readOnly={false}
+            onChange={(value) => update(i, value)}
+            onRemove={() => remove(i)}
+          />
         ))}
       </div>
 

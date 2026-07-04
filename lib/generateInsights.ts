@@ -38,6 +38,10 @@ export type Insights = {
   whatWorked: string[]
   areasForAttention: string[]
   actionPoints: string[]
+  accountSummary: string
+  campaignInsight: string
+  campaignAnalysis: string
+  keywordAnalysis: string
 }
 
 export class InsightsGenerationError extends Error {
@@ -55,8 +59,20 @@ const INSIGHTS_SCHEMA = {
     whatWorked: { type: 'array', items: { type: 'string' } },
     areasForAttention: { type: 'array', items: { type: 'string' } },
     actionPoints: { type: 'array', items: { type: 'string' } },
+    accountSummary: { type: 'string' },
+    campaignInsight: { type: 'string' },
+    campaignAnalysis: { type: 'string' },
+    keywordAnalysis: { type: 'string' },
   },
-  required: ['whatWorked', 'areasForAttention', 'actionPoints'],
+  required: [
+    'whatWorked',
+    'areasForAttention',
+    'actionPoints',
+    'accountSummary',
+    'campaignInsight',
+    'campaignAnalysis',
+    'keywordAnalysis',
+  ],
   additionalProperties: false,
 } as const
 
@@ -138,6 +154,10 @@ Provide:
 - whatWorked: 3-5 specific insights about what performed well this month, each citing real numbers from the data above.
 - areasForAttention: 3-4 specific concerns, each with real numbers and a concrete recommendation.
 - actionPoints: 3-5 specific, actionable next steps, each with a timeline and expected outcome.
+- accountSummary: 2-3 sentences summarizing overall account performance this month vs last month, citing specific spend/click/conversion numbers and the direction of change.
+- campaignInsight: exactly 1 sentence flagging the single most important campaign-level observation or warning this month, citing specific numbers (e.g. a device or campaign driving disproportionate spend or conversions).
+- campaignAnalysis: 2-3 sentences analyzing campaign performance, naming the top-spending campaign and any campaigns that are a concern (e.g. high spend with no conversions, paused despite budget).
+- keywordAnalysis: 2-3 sentences about keyword performance, naming the top-converting keyword and the keyword with the most wasted spend (spend with zero conversions), if any.
 
 Be specific, cite actual numbers from the data, and avoid generic advice.`
 }

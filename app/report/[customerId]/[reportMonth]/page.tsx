@@ -23,6 +23,10 @@ type SavedInsights = {
   points: string[] | null
   what_worked: string | null
   areas_for_attention: string | null
+  account_summary: string | null
+  campaign_insight: string | null
+  campaign_analysis: string | null
+  keyword_analysis: string | null
 }
 
 function fmtCAD(n: number, decimals = 0) {
@@ -91,7 +95,7 @@ export default async function PublicReportPage({
       supabase.from('age_gender').select('*').eq('client_id', cid).eq('report_month', dbMonth),
       supabase
         .from('action_points')
-        .select('points, what_worked, areas_for_attention')
+        .select('points, what_worked, areas_for_attention, account_summary, campaign_insight, campaign_analysis, keyword_analysis')
         .eq('client_id', cid)
         .eq('report_month', dbMonth)
         .maybeSingle(),
@@ -205,9 +209,19 @@ export default async function PublicReportPage({
   // private dashboard) reuse the same text instead of regenerating it.
   let whatWorked = savedInsights?.what_worked ?? undefined
   let areasForAttention = savedInsights?.areas_for_attention ?? undefined
+  let accountSummary = savedInsights?.account_summary ?? undefined
+  let campaignInsight = savedInsights?.campaign_insight ?? undefined
+  let campaignAnalysis = savedInsights?.campaign_analysis ?? undefined
+  let keywordAnalysis = savedInsights?.keyword_analysis ?? undefined
   let actionPoints = (savedInsights?.points as string[] | undefined) ?? undefined
 
-  const hasSavedText = !!whatWorked?.trim() && !!areasForAttention?.trim()
+  const hasSavedText =
+    !!whatWorked?.trim() &&
+    !!areasForAttention?.trim() &&
+    !!accountSummary?.trim() &&
+    !!campaignInsight?.trim() &&
+    !!campaignAnalysis?.trim() &&
+    !!keywordAnalysis?.trim()
 
   if (!hasSavedText) {
     try {
@@ -225,6 +239,10 @@ export default async function PublicReportPage({
 
       whatWorked = bulletText(generated.whatWorked)
       areasForAttention = bulletText(generated.areasForAttention)
+      accountSummary = generated.accountSummary
+      campaignInsight = generated.campaignInsight
+      campaignAnalysis = generated.campaignAnalysis
+      keywordAnalysis = generated.keywordAnalysis
       const hasSavedPoints = !!actionPoints && actionPoints.length > 0
       if (!hasSavedPoints) actionPoints = generated.actionPoints
 
@@ -233,6 +251,10 @@ export default async function PublicReportPage({
         report_month: dbMonth,
         what_worked: whatWorked,
         areas_for_attention: areasForAttention,
+        account_summary: accountSummary,
+        campaign_insight: campaignInsight,
+        campaign_analysis: campaignAnalysis,
+        keyword_analysis: keywordAnalysis,
         updated_at: new Date().toISOString(),
       }
       if (!hasSavedPoints) upsertPayload.points = actionPoints
@@ -242,15 +264,15 @@ export default async function PublicReportPage({
         .upsert(upsertPayload, { onConflict: 'client_id,report_month' })
       if (upsertError) console.error('Failed to persist auto-generated insights:', upsertError)
     } catch (error) {
-      // Leave whatWorked/areasForAttention undefined — InsightsPanel already
-      // renders a "No notes added." placeholder in that case, so the page
-      // still renders correctly instead of crashing.
+      // Leave the insight fields undefined — InsightBanner already renders
+      // nothing in that case, so the page still renders correctly instead of
+      // crashing.
       console.error('Failed to auto-generate public report insights:', error)
     }
   }
 
   return (
-    <div className="min-h-screen bg-bg-grey py-8 px-4">
+    <div className="min-h-screen bg-bg-grey">
       <ReportBody
         clientId={cid}
         dbMonth={dbMonth}
@@ -267,8 +289,15 @@ export default async function PublicReportPage({
         ageGender={ageGender}
         summary={insightsSummary}
         readOnly
-        initialWhatWorked={whatWorked}
-        initialAreasForAttention={areasForAttention}
+        initialInsights={{
+          whatWorked,
+          areasForAttention,
+          accountSummary,
+          campaignInsight,
+          campaignAnalysis,
+          keywordAnalysis,
+          actionPoints,
+        }}
         initialActionPoints={actionPoints}
       />
     </div>
