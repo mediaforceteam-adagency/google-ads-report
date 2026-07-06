@@ -1,6 +1,9 @@
 import { supabase } from '@/lib/supabase'
 import ClientsGrid, { type ClientWithSummary } from './ClientsGrid'
 
+export const dynamic = 'force-dynamic'
+export const revalidate = 0
+
 type Client = {
   id: string
   client_name: string
